@@ -1,0 +1,40 @@
+<!-- ============================================================
+  EXAMPLE: Personal Profile — CLAUDE.md Additions
+  This file gets appended to base/CLAUDE.md when the personal profile
+  is active.
+
+  Good candidates for this file:
+    - Relaxed process requirements (no tickets, flexible commits)
+    - Technology openness (try new stacks, experiment freely)
+    - Simpler documentation expectations
+    - Cloud provider safety rules for personal accounts
+  ============================================================ -->
+
+# Personal Project Instructions
+
+## Personal Project Preferences
+
+### Project Management
+- No ticket requirement for personal projects
+- Flexible commit message format (conventional commits optional but encouraged)
+- Experimentation and learning encouraged
+- Simpler PR process — description can be brief for solo projects
+
+### Technology Flexibility
+- Open to different stacks and tools
+- Can use any database technology (PostgreSQL, SQLite, MongoDB, etc.)
+- Free to try new frameworks, libraries, and approaches
+
+### Documentation
+- README is sufficient for most personal projects
+- Detailed docs only when the project grows or is intended for sharing
+
+## Cloud Provider Safety
+
+No personal cloud account is considered safe for auto-execution. Before running any cloud CLI command:
+
+1. **Present the commands** — List exactly what will be run and why
+2. **Flag write operations** — If any command modifies infrastructure (create, update, delete, deploy, destroy), explicitly call this out
+3. **Wait for confirmation** — Do not execute until the user approves
+
+Read-only commands still require presenting the command and rationale, but should be noted as read-only.

@@ -1,0 +1,14 @@
+# Local machine-specific files (not synced)
+local/
+
+# macOS
+.DS_Store
+
+# Backup files
+*.backup
+*.bak
+
+# Editor files
+*.swp
+*.swo
+*~

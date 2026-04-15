@@ -1,0 +1,64 @@
+<!-- ============================================================
+  EXAMPLE: Work Profile — CLAUDE.md Additions
+  This file gets appended to base/CLAUDE.md when the work profile is active.
+
+  Good candidates for this file:
+    - Precedence rules (project > global conventions)
+    - Backwards compatibility requirements
+    - Cloud provider safety guardrails
+    - Infrastructure task checklists
+    - Team-specific architecture conventions
+  ============================================================ -->
+
+# Work-Specific Instructions
+
+## Precedence Rules
+
+These global preferences provide sensible defaults, but **project-level instructions always take precedence**:
+
+1. **Project CLAUDE.md > Global CLAUDE.md** - When a project has specific instructions, follow those over these global defaults
+2. **Project shared libraries > Generic patterns** - If a project has shared constructs or helpers, always use those instead of implementing generic patterns
+3. **Project conventions > Generic conventions** - Repository structure, testing frameworks, and coding patterns should match the project's established conventions
+4. **Existing codebase patterns > Personal preferences** - Respect and follow patterns already established in the codebase
+
+When working in a project with its own CLAUDE.md, treat these global preferences as fallback defaults for topics not covered by the project.
+
+## Backwards Compatibility
+
+**Every change must be backwards compatible.** Before making any modification:
+
+1. **Check for breaking changes** - Will this change break existing consumers, APIs, or integrations?
+2. **Preserve existing signatures** - When modifying functions/methods, maintain the original parameter order and types
+3. **Deprecate before removing** - Never remove functionality without a deprecation period
+4. **Verify compatibility** - After each change, explicitly confirm: "This change is backwards compatible because..."
+
+If a change cannot be made backwards compatible, **stop and discuss with the user** before proceeding.
+
+### What Requires Backwards Compatibility Review:
+- API endpoint changes (paths, parameters, response shapes)
+- Function/method signature changes
+- Database schema changes
+- Event payload changes
+- Package exports
+- Configuration file formats
+
+## Cloud Provider Safety Guardrails
+
+When running Claude Code with auto-accept permissions, restrict which cloud accounts can be used without explicit approval:
+
+### Allowed Account (Auto-Accept)
+- **Sandbox/Dev Account Only**: Operations targeting your designated sandbox profile are permitted for automatic execution
+- This is the designated safe testing environment
+
+### All Other Accounts (Require Explicit Permission)
+All production, staging, or non-sandbox accounts **MUST** receive explicit user approval before any operation. Before executing any cloud CLI command:
+1. Verify the target account/profile
+2. If it's not the sandbox, ask for permission before proceeding
+
+## Task Completion Checklist — Infrastructure
+
+- For infra changes, ensure:
+  - Synthesis/compilation passes
+  - Diff reviewed and summarized
+  - IAM/permissions reviewed (new actions/resources)
+  - Cost-impact callout if relevant
