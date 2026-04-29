@@ -14,12 +14,17 @@ fi
 rm -rf "$RULES_DEST"
 mkdir -p "$RULES_DEST"
 
-# Deploy base rules first
+# Deploy base rules (shared across all tools)
 if [[ -d "$SCRIPT_DIR/base/rules" ]]; then
     cp "$SCRIPT_DIR/base/rules/"*.md "$RULES_DEST/" 2>/dev/null || true
 fi
 
-# Deploy profile rules (can override base by name)
+# Deploy Claude-specific rules
+if [[ -d "$SCRIPT_DIR/claude/rules" ]]; then
+    cp "$SCRIPT_DIR/claude/rules/"*.md "$RULES_DEST/" 2>/dev/null || true
+fi
+
+# Deploy profile rules (can override base or claude rules by name)
 if [[ -d "$SCRIPT_DIR/profiles/$PROFILE/rules" ]]; then
     cp "$SCRIPT_DIR/profiles/$PROFILE/rules/"*.md "$RULES_DEST/" 2>/dev/null || true
 fi

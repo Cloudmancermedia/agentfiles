@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving claudefiles!
+Thanks for your interest in improving agentfiles!
 
 ## How to Contribute
 

@@ -9,8 +9,12 @@ if [[ -z "$CURRENT_PROFILE" ]]; then
     exit 1
 fi
 
-echo "=== Syncing claudefiles ==="
+ENABLED_TOOLS="$SCRIPT_DIR/local/.enabled-tools"
+TOOLS=$(cat "$ENABLED_TOOLS" 2>/dev/null || echo "claude")
+
+echo "=== Syncing agentfiles ==="
 echo "Current profile: $CURRENT_PROFILE"
+echo "Enabled tools: $TOOLS"
 echo ""
 
 # Pull latest
@@ -27,21 +31,30 @@ git pull --ff-only || {
 echo ""
 echo "Reapplying configuration..."
 
-# Merge CLAUDE.md
-cat "$SCRIPT_DIR/base/CLAUDE.md" > ~/.claude/CLAUDE.md
-if [[ -f "$SCRIPT_DIR/profiles/$CURRENT_PROFILE/CLAUDE.md.append" ]]; then
-    echo "" >> ~/.claude/CLAUDE.md
-    echo "---" >> ~/.claude/CLAUDE.md
-    echo "" >> ~/.claude/CLAUDE.md
-    cat "$SCRIPT_DIR/profiles/$CURRENT_PROFILE/CLAUDE.md.append" >> ~/.claude/CLAUDE.md
+# Deploy Claude Code configuration (if enabled)
+if echo "$TOOLS" | grep -qw "claude"; then
+    cat "$SCRIPT_DIR/base/CLAUDE.md" > ~/.claude/CLAUDE.md
+    if [[ -f "$SCRIPT_DIR/profiles/$CURRENT_PROFILE/CLAUDE.md.append" ]]; then
+        echo "" >> ~/.claude/CLAUDE.md
+        echo "---" >> ~/.claude/CLAUDE.md
+        echo "" >> ~/.claude/CLAUDE.md
+        cat "$SCRIPT_DIR/profiles/$CURRENT_PROFILE/CLAUDE.md.append" >> ~/.claude/CLAUDE.md
+    fi
+    echo "  -> ~/.claude/CLAUDE.md updated"
+
+    "$SCRIPT_DIR/scripts/deploy-rules.sh" "$CURRENT_PROFILE"
+    "$SCRIPT_DIR/scripts/merge-settings.sh" "$CURRENT_PROFILE"
+    "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh"
+
+    # Deploy Claude Code skills
+    "$SCRIPT_DIR/scripts/deploy-skills.sh" claude
 fi
-echo "  -> ~/.claude/CLAUDE.md updated"
 
-# Deploy rules files
-"$SCRIPT_DIR/scripts/deploy-rules.sh" "$CURRENT_PROFILE"
-
-# Merge settings
-"$SCRIPT_DIR/scripts/merge-settings.sh" "$CURRENT_PROFILE"
+# Deploy Codex configuration (if enabled)
+if echo "$TOOLS" | grep -qw "codex"; then
+    echo ""
+    "$SCRIPT_DIR/scripts/deploy-codex.sh" "$CURRENT_PROFILE"
+fi
 
 # Record sync time
 echo "$(date +%Y-%m-%d)" > "$SCRIPT_DIR/local/.last-sync"

@@ -4,24 +4,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_DIR="$SCRIPT_DIR/local"
 
-echo "=== Claude Config Installation ==="
+echo "=== agentfiles Installation ==="
 echo ""
 
 # Create local directory (gitignored)
 mkdir -p "$LOCAL_DIR"
-
-# Check for existing Claude config
-if [[ -f ~/.claude/CLAUDE.md ]] || [[ -f ~/.claude/settings.json ]] || [[ -f ~/.claude.json ]]; then
-    BACKUP_DIR=~/.claude-backup-$(date +%Y%m%d-%H%M%S)
-    echo "Existing Claude configuration detected."
-    echo "Backing up to $BACKUP_DIR/"
-    mkdir -p "$BACKUP_DIR"
-    [[ -f ~/.claude/CLAUDE.md ]] && cp ~/.claude/CLAUDE.md "$BACKUP_DIR/"
-    [[ -f ~/.claude/settings.json ]] && cp ~/.claude/settings.json "$BACKUP_DIR/"
-    [[ -f ~/.claude.json ]] && cp ~/.claude.json "$BACKUP_DIR/"
-    echo "Backup complete."
-    echo ""
-fi
 
 # Prompt for default profile
 echo "Which profile should be the default for this machine?"
@@ -36,10 +23,27 @@ case $choice in
     *) echo "Invalid choice"; exit 1 ;;
 esac
 
-# Save default profile
-echo "$DEFAULT_PROFILE" > "$LOCAL_DIR/.current-profile"
+# Select which tools to configure
+echo ""
+echo "Which tools should be configured on this machine?"
+echo "  1) Claude Code only"
+echo "  2) Claude Code + Codex CLI"
+echo "  3) Codex CLI only"
+echo ""
+read -p "Select [1/2/3]: " tool_choice
 
-# Apply the profile
+case $tool_choice in
+    1) ENABLED_TOOLS="claude" ;;
+    2) ENABLED_TOOLS="claude codex" ;;
+    3) ENABLED_TOOLS="codex" ;;
+    *) echo "Invalid choice"; exit 1 ;;
+esac
+
+echo "$ENABLED_TOOLS" > "$LOCAL_DIR/.enabled-tools"
+
+# Apply the profile. Remove any previous marker first so reinstalling with the
+# same profile still redeploys the selected tools.
+rm -f "$LOCAL_DIR/.current-profile"
 "$SCRIPT_DIR/switch-profile.sh" "$DEFAULT_PROFILE"
 
 echo ""

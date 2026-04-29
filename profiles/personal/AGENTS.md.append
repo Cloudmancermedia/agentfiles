@@ -1,0 +1,10 @@
+<!-- ============================================================
+  EXAMPLE: Personal Profile — AGENTS.md Additions (Codex CLI)
+  This file gets appended to the compiled AGENTS.md when the personal
+  profile is active and Codex CLI is enabled.
+
+  This is the Codex equivalent of CLAUDE.md.append. Use it for
+  Codex-specific behavioral overrides for personal projects.
+  If your additions are tool-agnostic, put them in CLAUDE.md.append
+  instead — they will be included in both CLAUDE.md and AGENTS.md.
+  ============================================================ -->

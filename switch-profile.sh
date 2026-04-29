@@ -23,46 +23,61 @@ if [[ -f "$CURRENT_PROFILE_FILE" ]]; then
     fi
 fi
 
+ENABLED_TOOLS=$(cat "$SCRIPT_DIR/local/.enabled-tools" 2>/dev/null || echo "claude")
+
 echo "=== Switching to profile: $PROFILE ==="
 echo ""
 
 # 1. Backup current config
 "$SCRIPT_DIR/scripts/backup-current.sh"
 
-# 2. Merge CLAUDE.md (base + profile)
-echo "Merging CLAUDE.md..."
-mkdir -p ~/.claude
-cat "$SCRIPT_DIR/base/CLAUDE.md" > ~/.claude/CLAUDE.md
-if [[ -f "$SCRIPT_DIR/profiles/$PROFILE/CLAUDE.md.append" ]]; then
-    echo "" >> ~/.claude/CLAUDE.md
-    echo "---" >> ~/.claude/CLAUDE.md
-    echo "" >> ~/.claude/CLAUDE.md
-    cat "$SCRIPT_DIR/profiles/$PROFILE/CLAUDE.md.append" >> ~/.claude/CLAUDE.md
+# 2. Deploy Claude Code configuration (if enabled)
+if echo "$ENABLED_TOOLS" | grep -qw "claude"; then
+    echo "Merging CLAUDE.md..."
+    mkdir -p ~/.claude
+    cat "$SCRIPT_DIR/base/CLAUDE.md" > ~/.claude/CLAUDE.md
+    if [[ -f "$SCRIPT_DIR/profiles/$PROFILE/CLAUDE.md.append" ]]; then
+        echo "" >> ~/.claude/CLAUDE.md
+        echo "---" >> ~/.claude/CLAUDE.md
+        echo "" >> ~/.claude/CLAUDE.md
+        cat "$SCRIPT_DIR/profiles/$PROFILE/CLAUDE.md.append" >> ~/.claude/CLAUDE.md
+    fi
+    echo "  -> ~/.claude/CLAUDE.md updated"
+
+    echo "Deploying rules files..."
+    "$SCRIPT_DIR/scripts/deploy-rules.sh" "$PROFILE"
+
+    echo "Merging MCP servers..."
+    "$SCRIPT_DIR/scripts/merge-settings.sh" "$PROFILE"
+
+    echo "Syncing Claude Code plugins..."
+    "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh"
+
+    echo "Deploying Claude Code skills..."
+    "$SCRIPT_DIR/scripts/deploy-skills.sh" claude
 fi
-echo "  -> ~/.claude/CLAUDE.md updated"
 
-# 3. Deploy rules files
-echo "Deploying rules files..."
-"$SCRIPT_DIR/scripts/deploy-rules.sh" "$PROFILE"
+# 3. Deploy Codex configuration (if enabled)
+if echo "$ENABLED_TOOLS" | grep -qw "codex"; then
+    echo ""
+    echo "Deploying Codex configuration..."
+    "$SCRIPT_DIR/scripts/deploy-codex.sh" "$PROFILE"
+fi
 
-# 4. Merge MCP servers into ~/.claude.json
-echo "Merging MCP servers..."
-"$SCRIPT_DIR/scripts/merge-settings.sh" "$PROFILE"
-
-# 5. Save current profile
+# 4. Save current profile
 mkdir -p "$SCRIPT_DIR/local"
 echo "$PROFILE" > "$SCRIPT_DIR/local/.current-profile"
 
-# 6. Remind about account switching
+# 5. Remind about account switching
 ACCOUNT_FILE="$SCRIPT_DIR/profiles/$PROFILE/account.txt"
 echo ""
 echo "=== Configuration switched to: $PROFILE ==="
 echo ""
-echo "NOTE: This only updates Claude Code configuration files (CLAUDE.md, rules,"
-echo "MCP servers, settings). It does NOT switch your Claude Code account."
+echo "NOTE: This only updates configuration files (CLAUDE.md, rules, MCP servers,"
+echo "settings). It does NOT switch your accounts."
 if [[ -f "$ACCOUNT_FILE" ]]; then
     echo ""
-    echo "If this profile uses a different account, log out and back in:"
+    echo "If this profile uses a different Claude account, log out and back in:"
     echo "  claude /logout"
     echo "  claude  # then log in as: $(cat "$ACCOUNT_FILE")"
 fi

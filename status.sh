@@ -2,12 +2,38 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "=== Claude Config Status ==="
+echo "=== agentfiles Status ==="
 echo ""
+
+print_dir_entries() {
+    local target_dir=$1
+    local exclude_name=${2:-}
+
+    if [[ ! -d "$target_dir" ]]; then
+        echo "  (none)"
+        return
+    fi
+
+    local found=false
+    for path in "$target_dir"/*; do
+        [[ -e "$path" ]] || continue
+        [[ -n "$exclude_name" && "$(basename "$path")" == "$exclude_name" ]] && continue
+        found=true
+        echo "  - $(basename "$path")"
+    done
+
+    if [[ "$found" == false ]]; then
+        echo "  (none)"
+    fi
+}
 
 # Current profile
 CURRENT_PROFILE=$(cat "$SCRIPT_DIR/local/.current-profile" 2>/dev/null || echo "(none)")
 echo "Current profile: $CURRENT_PROFILE"
+
+# Enabled tools
+ENABLED_TOOLS=$(cat "$SCRIPT_DIR/local/.enabled-tools" 2>/dev/null || echo "claude")
+echo "Enabled tools: $ENABLED_TOOLS"
 
 # Last sync
 LAST_SYNC=$(cat "$SCRIPT_DIR/local/.last-sync" 2>/dev/null || echo "(never)")
@@ -63,4 +89,34 @@ if [[ -d ~/.claude/rules ]]; then
     done
 else
     echo "  (none)"
+fi
+
+echo ""
+echo "Claude custom skills:"
+print_dir_entries ~/.claude/skills
+
+# Codex status (if enabled)
+if echo "$ENABLED_TOOLS" | grep -qw "codex"; then
+    echo ""
+    echo "--- Codex CLI ---"
+    if [[ -f ~/.codex/AGENTS.md ]]; then
+        SECTIONS=$(grep -c '^## ' ~/.codex/AGENTS.md 2>/dev/null || echo "0")
+        echo "  AGENTS.md: deployed ($SECTIONS rule sections)"
+    else
+        echo "  AGENTS.md: not deployed"
+    fi
+    if [[ -f ~/.codex/config.toml ]]; then
+        MCP_COUNT=$(awk '/^\[mcp_servers\./ { count++ } END { print count + 0 }' ~/.codex/config.toml)
+        echo "  config.toml: deployed ($MCP_COUNT MCP servers)"
+    else
+        echo "  config.toml: not deployed"
+    fi
+    echo "  Codex MCP servers:"
+    if [[ -f ~/.codex/config.toml ]]; then
+        grep '^\[mcp_servers\.' ~/.codex/config.toml 2>/dev/null | sed -E 's/^\[mcp_servers\.([^.]+)\]$/  - \1/' || echo "  (none)"
+    else
+        echo "  (none)"
+    fi
+    echo "  Codex custom skills:"
+    print_dir_entries ~/.codex/skills .system
 fi

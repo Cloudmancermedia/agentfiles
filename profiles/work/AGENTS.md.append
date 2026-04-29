@@ -1,0 +1,10 @@
+<!-- ============================================================
+  EXAMPLE: Work Profile — AGENTS.md Additions (Codex CLI)
+  This file gets appended to the compiled AGENTS.md when the work
+  profile is active and Codex CLI is enabled.
+
+  This is the Codex equivalent of CLAUDE.md.append. Use it for
+  Codex-specific behavioral overrides that only apply at work.
+  If your additions are tool-agnostic, put them in CLAUDE.md.append
+  instead — they will be included in both CLAUDE.md and AGENTS.md.
+  ============================================================ -->

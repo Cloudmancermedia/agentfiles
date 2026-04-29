@@ -1,11 +1,11 @@
 # AI Tool Configuration Management
 
-All AI coding tool configuration (CLAUDE.md, AGENTS.md, rules files, settings, MCP server configs) is managed through a dedicated `agentfiles` Git repository. This repo is the **single source of truth** and is synced across multiple machines and profiles.
+All Claude Code and Codex CLI configuration in this setup is managed through the dedicated `agentfiles` Git repository. This repo is the **single source of truth** for instructions, rules, custom skills, plugins, MCP server configs, and tool settings across machines and profiles.
 
 ## Rules
 
 ### Never Edit Generated Tool Config Directly
-- **Never** make direct edits to files in `~/.claude/`, `~/.claude/rules/`, `~/.claude.json`, `~/.codex/AGENTS.md`, `~/.codex/config.toml`, or any other local deployed tool config path.
+- **Never** make direct edits to generated files in `~/.claude/`, `~/.claude/rules/`, `~/.claude.json`, `~/.codex/AGENTS.md`, `~/.codex/config.toml`, `~/.codex/skills/`, or any other local deployed tool config path.
 - All changes must be made in the `agentfiles` repository and deployed via `sync.sh`.
 - Direct edits will be overwritten on the next sync and will not propagate to other machines.
 
@@ -20,12 +20,12 @@ All AI coding tool configuration (CLAUDE.md, AGENTS.md, rules files, settings, M
   - **Profile rules** (`profiles/<name>/rules/`): Apply only to a specific profile
   - **CLAUDE.md** (`base/CLAUDE.md`): Global instructions shared across profiles
   - **Profile CLAUDE.md** (`profiles/<name>/CLAUDE.md.append`): Profile-specific additions
-  - **Custom skills** (`claude/skills/<name>/SKILL.md`): Synced to both Claude Code and Codex
-  - **Codex-specific config** (`codex/`): Codex-only preamble, TOML settings, and optional plugin configuration
+  - **Custom skills** (`claude/skills/<name>/SKILL.md`): Source of truth for skills synced to both Claude Code and Codex
+  - **Codex-specific config** (`codex/`): Codex-only preamble, TOML settings, and optional plugin marketplaces/plugin enablement
 
 ### Commit, Push, and Sync
 - After making changes, always commit and push to the remote so other machines can pull the update.
-- Run `sync.sh` to deploy the changes to all enabled tools.
+- Run `sync.sh` to deploy the changes to the enabled local tools.
 
 ### Prefer Repo-Level Persistence Over Local Memories
 - When the user asks to "remember" something that should apply across machines (rules, preferences, conventions, workflow instructions):

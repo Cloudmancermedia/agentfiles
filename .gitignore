@@ -1,5 +1,6 @@
 # Local machine-specific files (not synced)
 local/
+.mcp.json
 
 # macOS
 .DS_Store

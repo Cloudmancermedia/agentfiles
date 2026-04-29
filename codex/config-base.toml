@@ -1,0 +1,14 @@
+# Codex CLI base configuration — customize to your preferences
+approval_mode = "suggest"
+# model_reasoning_effort = "high"
+# model = "your-preferred-model"
+
+[history]
+persistence = "save-all"
+max_entries = 2000
+
+[features]
+stream_response = true
+
+[project_doc]
+max_bytes = 65536
