@@ -13,6 +13,3 @@ local/
 *.swp
 *.swo
 *~
-
-# Generated Codex AGENTS.md at repo root (never committed)
-/AGENTS.md
