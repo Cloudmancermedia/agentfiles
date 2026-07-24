@@ -1,0 +1,2 @@
+# Presence of this file marks factory-zero: a profile that deploys nothing.
+# deploy-profile.sh short-circuits to the teardown when it sees this flag.

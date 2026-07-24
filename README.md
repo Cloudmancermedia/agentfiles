@@ -250,7 +250,7 @@ The intended workflow is:
 
 Direct edits to `~/.claude/` or `~/.codex/` get overwritten on the next sync. That's by design — this repo is the durable, portable record.
 
-If you include the `base/rules/config-management.md` rule (or write your own version of it), Claude itself will learn to edit this repo instead of `~/.claude/` when you ask it to change your configuration.
+If you include the `claude/rules/config-management.md` rule (or write your own version of it), Claude itself will learn to edit this repo instead of `~/.claude/` when you ask it to change your configuration.
 
 ## Repository Structure
 
@@ -259,9 +259,8 @@ agentfiles/
 ├── base/                               # Shared config (all profiles)
 │   ├── CLAUDE.md                       # Core instructions for the agent
 │   ├── rules/                          # Shared rules (auto-loaded)
-│   │   ├── api-design.md              # Example: REST API conventions
-│   │   ├── typescript.md              # Example: TypeScript standards
-│   │   ├── testing.md                 # Example: Testing strategy
+│   │   ├── documentation.md           # Example: where docs live
+│   │   ├── tool-and-skill-usage.md    # Example: tool/skill selection
 │   │   └── ...                        # Add your own .md files here
 │   ├── mcp-servers-base.json          # MCP servers for all profiles
 │   └── settings.json                  # Claude Code settings
@@ -285,35 +284,48 @@ agentfiles/
 │   │   ├── CLAUDE.md.append           # Work-specific instruction additions
 │   │   ├── AGENTS.md.append           # Work-specific Codex additions
 │   │   ├── rules/                     # Work-specific rules
-│   │   ├── mcp-servers.json           # Work-specific MCP servers
-│   │   └── account.txt                # Claude account email hint
+│   │   ├── skills.txt                 # Skill allowlist (@include inherits)
+│   │   └── mcp-servers.json           # Work-specific MCP servers
 │   │
-│   └── personal/                      # Example: Personal profile
-│       ├── CLAUDE.md.append           # Personal-specific additions
-│       ├── AGENTS.md.append           # Personal-specific Codex additions
-│       ├── rules/                     # Personal-specific rules
-│       ├── mcp-servers.json           # Personal-specific MCP servers
-│       └── account.txt                # Claude account email hint
+│   ├── personal/                      # Example: Personal profile
+│   │   ├── CLAUDE.md.append           # Personal-specific additions
+│   │   ├── AGENTS.md.append           # Personal-specific Codex additions
+│   │   ├── rules/                     # Personal-specific rules
+│   │   ├── skills.txt                 # Skill allowlist
+│   │   └── mcp-servers.json           # Personal-specific MCP servers
+│   │
+│   └── factory-zero/                  # Example: deploys nothing (clean baseline)
+│       └── factory-zero.flag
+│
+├── bin/
+│   └── claude-home                    # Launch Claude against a specific home
 │
 ├── scripts/                           # Internal helper scripts
-│   ├── backup-current.sh             # Backs up Claude/Codex config before changes
+│   ├── resolve-homes.sh              # Parses local/.homes (profile<->home table)
+│   ├── deploy-profile.sh             # Deploys one profile into one home
+│   ├── deploy-factory-zero.sh        # Tears a home down to nothing
+│   ├── deploy-shared-skills.sh       # Materializes the shared skill store
+│   ├── profile-skills.sh             # Resolves a profile's skill allowlist
 │   ├── compile-agents-md.sh          # Compiles AGENTS.md for Codex
 │   ├── deploy-claude-plugins.sh      # Deploys Claude Code plugins
 │   ├── deploy-codex.sh               # Deploys Codex CLI configuration
-│   ├── deploy-rules.sh               # Deploys rules to ~/.claude/rules/
-│   ├── deploy-skills.sh              # Deploys skills to both tools
+│   ├── deploy-rules.sh               # Deploys rules to a home's rules/
+│   ├── deploy-skills.sh              # Deploys skills to Codex
+│   ├── verify-plugins.sh             # Reports plugin enable-state drift
 │   ├── json-to-toml-mcp.sh           # Converts MCP JSON to TOML format
 │   └── merge-settings.sh             # Merges MCP servers + settings
 │
 ├── local/                             # Machine-specific state (gitignored)
+│   └── .homes                         # Which profile deploys into which home
 │
 ├── docs/
-│   └── customization.md              # Detailed customization guide
+│   ├── customization.md              # Detailed customization guide
+│   └── multi-account.md              # Adding a second account/home
 │
 ├── install.sh                         # First-time setup (tool + profile selection)
-├── switch-profile.sh                  # Switch profile + remind to re-login
+├── switch-profile.sh                  # Rebind a home to a profile + redeploy
 ├── sync.sh                            # Pull latest + reapply everything
-├── status.sh                          # Show current state
+├── status.sh                          # Show homes and account state
 ├── LICENSE                            # MIT
 └── CONTRIBUTING.md
 ```
@@ -324,15 +336,15 @@ agentfiles/
 |---------|--------------|
 | `./install.sh` | First-time setup — choose which tools to configure and set a default profile |
 | `./sync.sh` | Pull latest from Git + reapply everything for enabled tools |
-| `./switch-profile.sh <name>` | Switch to a different profile (backs up first) |
-| `./status.sh` | Show current profile, sync status, active MCP servers and rules |
+| `./switch-profile.sh [<home>] <name>` | Rebind a home to a profile and redeploy it |
+| `./status.sh` | Show homes, bound profiles, logged-in accounts, MCP servers and rules |
 
 ## Adding More Profiles
 
 The repo ships with `work` and `personal`, but you can create any profiles:
 
 1. `mkdir -p profiles/freelance/rules`
-2. Add `account.txt`, `CLAUDE.md.append`, `AGENTS.md.append`, `mcp-servers.json` (see existing profiles for the pattern)
+2. Add `CLAUDE.md.append`, `AGENTS.md.append`, `mcp-servers.json`, `skills.txt` (see existing profiles for the pattern)
 3. `./switch-profile.sh freelance`
 
 The scripts auto-detect profiles from directory names. `AGENTS.md.append` is optional — only needed if you use Codex CLI and want profile-specific Codex instructions.

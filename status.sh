@@ -10,7 +10,7 @@ print_dir_entries() {
     local exclude_name=${2:-}
 
     if [[ ! -d "$target_dir" ]]; then
-        echo "  (none)"
+        echo "    (none)"
         return
     fi
 
@@ -19,23 +19,17 @@ print_dir_entries() {
         [[ -e "$path" ]] || continue
         [[ -n "$exclude_name" && "$(basename "$path")" == "$exclude_name" ]] && continue
         found=true
-        echo "  - $(basename "$path")"
+        echo "    - $(basename "$path")"
     done
-
-    if [[ "$found" == false ]]; then
-        echo "  (none)"
-    fi
+    [[ "$found" == false ]] && echo "    (none)"
 }
 
-# Current profile
-CURRENT_PROFILE=$(cat "$SCRIPT_DIR/local/.current-profile" 2>/dev/null || echo "(none)")
-echo "Current profile: $CURRENT_PROFILE"
+# Shorten $HOME back to ~ for display.
+tilde() { local t="~"; echo "${1/#$HOME/$t}"; }
 
-# Enabled tools
 ENABLED_TOOLS=$(cat "$SCRIPT_DIR/local/.enabled-tools" 2>/dev/null || echo "claude")
 echo "Enabled tools: $ENABLED_TOOLS"
 
-# Last sync
 LAST_SYNC=$(cat "$SCRIPT_DIR/local/.last-sync" 2>/dev/null || echo "(never)")
 echo "Last sync: $LAST_SYNC"
 
@@ -46,59 +40,69 @@ cd "$SCRIPT_DIR"
 git fetch --quiet 2>/dev/null || true
 LOCAL=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 REMOTE=$(git rev-parse @{u} 2>/dev/null || echo "none")
-
 if [[ "$REMOTE" == "none" ]]; then
     echo "  No upstream configured"
 elif [[ "$LOCAL" == "$REMOTE" ]]; then
     echo "  Up to date with remote"
 else
     BEHIND=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "?")
-    echo "  Behind remote by $BEHIND commit(s)"
-    echo "  Run ./sync.sh to update"
+    echo "  Behind remote by $BEHIND commit(s) — run ./sync.sh"
 fi
 
-# Current Claude account
-echo ""
-echo "Claude account:"
-if [[ -f ~/.claude.json ]]; then
-    ACCOUNT=$(jq -r '.oauthAccount.emailAddress // "unknown"' ~/.claude.json 2>/dev/null)
-    ORG=$(jq -r '.oauthAccount.organizationName // "none"' ~/.claude.json 2>/dev/null)
-    echo "  Email: $ACCOUNT"
-    echo "  Organization: $ORG"
-else
-    echo "  No account info found"
-fi
+# Per-home Claude state. Each home has its own bound profile, its own login, and
+# its own deployed config.
+if echo "$ENABLED_TOOLS" | grep -qw "claude"; then
+    echo ""
+    echo "=== Claude homes ==="
+    while IFS=$'\t' read -r label profile dir; do
+        [[ -n "$label" ]] || continue
+        # The app-state file pairs with the home: ~/.claude.json for the default,
+        # else <dir>/.claude.json.
+        if [[ "$dir" == "$HOME/.claude" ]]; then
+            claude_json="$HOME/.claude.json"
+        else
+            claude_json="$dir/.claude.json"
+        fi
 
-# MCP servers
-echo ""
-echo "Active MCP servers:"
-if [[ -f ~/.claude.json ]]; then
-    jq -r '.mcpServers // {} | keys[]' ~/.claude.json 2>/dev/null | while read server; do
-        echo "  - $server"
-    done
-else
-    echo "  (none)"
-fi
+        echo ""
+        echo "  [$label] profile: $profile  ->  $(tilde "$dir")"
 
-# Rules files
-echo ""
-echo "Active rules files:"
-if [[ -d ~/.claude/rules ]]; then
-    for f in ~/.claude/rules/*.md; do
-        [[ -f "$f" ]] && echo "  - $(basename "$f")"
-    done
-else
-    echo "  (none)"
-fi
+        if [[ -f "$claude_json" ]]; then
+            account=$(jq -r '.oauthAccount.emailAddress // "unknown"' "$claude_json" 2>/dev/null)
+            org=$(jq -r '.oauthAccount.organizationName // "none"' "$claude_json" 2>/dev/null)
+            echo "    account: $account (org: $org)"
+        else
+            echo "    account: (not logged in)"
+        fi
 
-echo ""
-echo "Claude custom skills:"
-print_dir_entries ~/.claude/skills
+        echo "    MCP servers:"
+        if [[ -f "$claude_json" ]]; then
+            servers=$(jq -r '.mcpServers // {} | keys[]' "$claude_json" 2>/dev/null)
+            if [[ -n "$servers" ]]; then
+                echo "$servers" | while read -r s; do echo "      - $s"; done
+            else
+                echo "      (none)"
+            fi
+        else
+            echo "      (none)"
+        fi
+
+        if [[ -d "$dir/rules" ]]; then
+            rules_count=$(find "$dir/rules" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+            echo "    rules: $rules_count file(s)"
+        else
+            echo "    rules: (none)"
+        fi
+
+        echo "    skills:"
+        print_dir_entries "$dir/skills"
+    done < <("$SCRIPT_DIR/scripts/resolve-homes.sh" 2>/dev/null)
+fi
 
 # Codex status (if enabled)
 if echo "$ENABLED_TOOLS" | grep -qw "codex"; then
     echo ""
-    echo "--- Codex CLI ---"
+    echo "=== Codex CLI ==="
     if [[ -f ~/.codex/AGENTS.md ]]; then
         SECTIONS=$(grep -c '^## ' ~/.codex/AGENTS.md 2>/dev/null || echo "0")
         echo "  AGENTS.md: deployed ($SECTIONS rule sections)"
@@ -110,12 +114,6 @@ if echo "$ENABLED_TOOLS" | grep -qw "codex"; then
         echo "  config.toml: deployed ($MCP_COUNT MCP servers)"
     else
         echo "  config.toml: not deployed"
-    fi
-    echo "  Codex MCP servers:"
-    if [[ -f ~/.codex/config.toml ]]; then
-        grep '^\[mcp_servers\.' ~/.codex/config.toml 2>/dev/null | sed -E 's/^\[mcp_servers\.([^.]+)\]$/  - \1/' || echo "  (none)"
-    else
-        echo "  (none)"
     fi
     echo "  Codex custom skills:"
     print_dir_entries ~/.codex/skills .system

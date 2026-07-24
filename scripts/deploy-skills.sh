@@ -17,7 +17,9 @@ fi
 
 case "$TARGET_TOOL" in
     claude)
-        TARGET_DIR="$HOME/.claude/skills"
+        # CLAUDE_TARGET_DIR selects an alternate Claude home (claude case only;
+        # codex is a single-home tool).
+        TARGET_DIR="${CLAUDE_TARGET_DIR:-$HOME/.claude}/skills"
         PRESERVE_SYSTEM=false
         ;;
     codex)

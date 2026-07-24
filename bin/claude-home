@@ -1,0 +1,63 @@
+#!/bin/bash
+set -euo pipefail
+
+# Launch Claude Code against a specific home from local/.homes.
+#
+#   bin/claude-home <label> [claude args...]
+#
+# Looks the label up in the home table (scripts/resolve-homes.sh), points
+# CLAUDE_CONFIG_DIR at that home, and execs the real `claude` binary. Two homes
+# stay separated by Claude Code's per-config-dir Keychain namespacing: a launch
+# under one home reads only that home's credential. Log in once inside a home
+# (launch it, then /login) to populate its Keychain entry — see
+# docs/multi-account.md.
+#
+# Invoked in place from the repo (e.g. as a tool's custom Claude binary path, or
+# wired to a shell alias). Deployed nowhere.
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+LABEL="${1:-}"
+if [[ -z "$LABEL" ]]; then
+    echo "Usage: claude-home <label> [claude args...]" >&2
+    echo "" >&2
+    echo "Homes:" >&2
+    "$REPO_ROOT/scripts/resolve-homes.sh" 2>/dev/null \
+        | awk -F'\t' '{ printf "  %-10s %-14s %s\n", $1, $2, $3 }' >&2
+    exit 1
+fi
+shift
+
+# Resolve the label -> home dir.
+HOME_DIR=""
+while IFS=$'\t' read -r label _profile dir; do
+    [[ "$label" == "$LABEL" ]] || continue
+    HOME_DIR="$dir"; break
+done < <("$REPO_ROOT/scripts/resolve-homes.sh")
+
+if [[ -z "$HOME_DIR" ]]; then
+    echo "claude-home: no home labeled '$LABEL' in local/.homes" >&2
+    exit 1
+fi
+
+# Resolve the real claude binary. CLAUDE_REAL_BIN overrides discovery for
+# environments where a shim named `claude` shadows the real one on PATH.
+REAL_CLAUDE="${CLAUDE_REAL_BIN:-}"
+if [[ -z "$REAL_CLAUDE" ]]; then
+    SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+    while IFS= read -r cand; do
+        [[ -x "$cand" ]] || continue
+        resolved="$(cd "$(dirname "$cand")" && pwd)/$(basename "$cand")"
+        [[ "$resolved" == "$SELF" ]] && continue  # never exec this wrapper
+        REAL_CLAUDE="$cand"
+        break
+    done < <(which -a claude 2>/dev/null)
+fi
+
+if [[ -z "$REAL_CLAUDE" || ! -x "$REAL_CLAUDE" ]]; then
+    echo "claude-home: no real claude binary found on PATH (set CLAUDE_REAL_BIN)" >&2
+    exit 1
+fi
+
+export CLAUDE_CONFIG_DIR="$HOME_DIR"
+exec "$REAL_CLAUDE" "$@"

@@ -1,0 +1,3 @@
+# Inherit the personal allowlist, then add work-only skills below.
+# A skill added to personal flows into work automatically via @include.
+@include personal

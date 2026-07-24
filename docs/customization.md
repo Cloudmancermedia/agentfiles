@@ -144,9 +144,9 @@ The repo ships with `work` and `personal`, but you can create any profiles you n
 
 1. Create a new directory under `profiles/` (e.g., `profiles/freelance/`)
 2. Add at minimum:
-   - `account.txt` — Email hint for the Claude/Codex account to use
    - `CLAUDE.md.append` — Profile-specific instructions (can be empty)
    - `mcp-servers.json` — Profile-specific MCP servers (use `{}` for none)
+   - `skills.txt` — Skill allowlist (one skill name per line; `@include <profile>` inherits another profile's list)
 3. Optionally add:
    - `rules/` — Profile-specific rules
    - `AGENTS.md.append` — Codex-specific additions (appended after compiled AGENTS.md)
@@ -167,10 +167,10 @@ The scripts don't depend on any specific file content. They just merge whatever 
 
 If a profile's `rules/` directory contains a file with the same name as a base rule, the profile version wins. For example:
 
-- `base/rules/testing.md` says "prefer Vitest"
-- `profiles/work/rules/testing.md` says "use Jest (company standard)"
+- `base/rules/documentation.md` says "docs live in `docs/`"
+- `profiles/work/rules/documentation.md` says "docs live in the company wiki"
 
-When the work profile is active, the Jest version is deployed. When personal is active, the Vitest version is used. The same override logic applies to `claude/rules/` — a profile rule with the same filename replaces it.
+When the work profile is active, the wiki version is deployed. When personal is active, the base version is used. The same override logic applies to `claude/rules/` — a profile rule with the same filename replaces it.
 
 ## Codex-Specific Customization
 

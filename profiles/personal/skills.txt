@@ -1,0 +1,3 @@
+# Skills this profile gets, one per line. Comments and blanks ignored.
+# Add a skill by naming its directory under claude/skills/.
+swarm-review
