@@ -80,7 +80,8 @@ echo ""
 #    short-circuits to the teardown for factory-zero.
 if echo "$ENABLED_TOOLS" | grep -qw "claude"; then
     "$SCRIPT_DIR/scripts/deploy-shared-skills.sh"
-    CLAUDE_TARGET_DIR="$TARGET_DIR" "$SCRIPT_DIR/scripts/deploy-profile.sh" "$PROFILE"
+    CLAUDE_TARGET_DIR="$TARGET_DIR" CLAUDE_HOME_LABEL="$TARGET_LABEL" \
+        "$SCRIPT_DIR/scripts/deploy-profile.sh" "$PROFILE"
     "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh" "$TARGET_DIR/settings.json"
 fi
 
