@@ -25,6 +25,15 @@ set -euo pipefail
 #   - skills.txt         -> the skill allowlist (@include inherits another list)
 #   - mcp-servers.json   -> merged over base/mcp-servers-base.json
 #   - settings.json      -> deep-merged over the core-derived settings.json
+#
+# Per-HOME settings (homes/<label>/settings.json) merge LAST, after the profile
+# overlay. They carry account-level engine settings — model, effortLevel — that
+# belong to the account (its plan and limits), not to the behavior profile
+# mounted on it. So swapping which profile an account runs never changes that
+# account's model. The label comes from CLAUDE_HOME_LABEL (set by sync.sh and
+# switch-profile.sh from local/.homes) or is derived from the home dir. The
+# factory-zero short-circuit sits above this layer, so a factory-zero home skips
+# it and stays genuinely unsteered.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROFILE="${1:-}"
@@ -44,6 +53,20 @@ SHARED_SKILLS="$HOME/.claude-shared/skills"
 TARGET_DIR="$CLAUDE_DIR/skills"
 CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
 BASE_MCP="$SCRIPT_DIR/base/mcp-servers-base.json"
+
+# Home label for the per-home settings overlay. Callers that know the binding
+# (sync.sh, switch-profile.sh) pass CLAUDE_HOME_LABEL; a direct run derives it
+# from the home dir the same way resolve-homes.sh labels homes.
+if [[ -n "${CLAUDE_HOME_LABEL:-}" ]]; then
+    HOME_LABEL="$CLAUDE_HOME_LABEL"
+else
+    case "$CLAUDE_DIR" in
+        "$HOME/.claude") HOME_LABEL="personal" ;;
+        "$HOME/.claude-"*) HOME_LABEL="${CLAUDE_DIR#"$HOME/.claude-"}" ;;
+        *) HOME_LABEL="$(basename "$CLAUDE_DIR" | tr -d '.')" ;;
+    esac
+fi
+HOME_SETTINGS="$SCRIPT_DIR/homes/$HOME_LABEL/settings.json"
 
 if [[ -z "$PROFILE" ]]; then
     echo "Usage: $0 <profile>" >&2
@@ -147,6 +170,17 @@ if [[ -f "$PROFILE_DIR/settings.json" ]]; then
     echo "  -> settings overlay merged: $(jq -r 'keys | join(", ")' "$PROFILE_DIR/settings.json")"
 fi
 
+# 3e. Home settings overlay — account-level engine settings (model, effortLevel)
+#     merged LAST so they win over base and profile alike. Keyed by home label,
+#     not profile: mounting a different profile on an account never changes that
+#     account's model. An absent file is a no-op.
+if [[ -f "$HOME_SETTINGS" ]]; then
+    SETTINGS_MERGED=$(jq -s '.[0] * .[1]' "$CLAUDE_SETTINGS" "$HOME_SETTINGS" \
+        | sed -e "s|{{CLAUDE_DIR}}|$CLAUDE_DIR|g" -e "s|{{HOME}}|$HOME|g")
+    echo "$SETTINGS_MERGED" > "$CLAUDE_SETTINGS"
+    echo "  -> home settings overlay merged ($HOME_LABEL): $(jq -r 'keys | join(", ")' "$HOME_SETTINGS")"
+fi
+
 # 4. Verify the final state matches the profile's manifests — no more, no less.
 echo ""
 echo "Verification:"
@@ -192,6 +226,19 @@ if [[ -f "$PROFILE_DIR/settings.json" ]]; then
         fi
     done
     echo "  [ok] settings overlay keys present"
+fi
+
+# Home settings overlay: every value it defines must match the deployed settings
+# exactly — it merges last, so nothing may override it.
+if [[ -f "$HOME_SETTINGS" ]]; then
+    for key in $(jq -r 'keys[]' "$HOME_SETTINGS"); do
+        expected=$(jq --arg k "$key" '.[$k]' "$HOME_SETTINGS")
+        actual=$(jq --arg k "$key" '.[$k]' "$CLAUDE_SETTINGS")
+        if [[ "$actual" != "$expected" ]]; then
+            echo "  [x] home settings key '$key' is $actual, expected $expected"; FAILED=1
+        fi
+    done
+    echo "  [ok] home settings overlay ($HOME_LABEL) applied"
 fi
 
 if [[ "$FAILED" -ne 0 ]]; then

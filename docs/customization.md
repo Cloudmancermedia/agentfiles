@@ -1,6 +1,6 @@
 # Customization Guide
 
-This document covers how to make agentfiles your own after forking.
+This document covers how to make agentfiles your own once you have your own copy of it. If you haven't set that up yet, start with the setup paths in the [README](../README.md#before-you-clone-public-fork-or-private-copy) — the choice between a public fork and a private copy matters if any of your configuration is work-related.
 
 ## The Core Pattern
 
@@ -11,7 +11,7 @@ Everything in this repo follows one rule: **base configuration is shared across 
 base/CLAUDE.md + profiles/<profile>/CLAUDE.md.append           → ~/.claude/CLAUDE.md
 base/rules/*.md + claude/rules/*.md + profiles/<profile>/rules/*.md → ~/.claude/rules/
 base/mcp-servers-base.json + profiles/<profile>/mcp-servers.json    → ~/.claude.json
-base/settings.json                                                  → ~/.claude/settings.json
+base/settings.json + profiles/<profile>/settings.json + homes/<label>/settings.json → ~/.claude/settings.json
 claude/skills/*/                                                    → ~/.claude/skills/
 ```
 
@@ -22,7 +22,7 @@ codex/config-base.toml + MCP servers (JSON→TOML)           → ~/.codex/config
 claude/skills/*/                                            → ~/.codex/skills/
 ```
 
-When you run `./sync.sh`, the scripts merge these layers and deploy the result to all enabled tools. Install and profile switches first back up existing Claude Code and Codex CLI config under `~/.agentfiles-backups/<timestamp>/`.
+When you run `./sync.sh`, the scripts merge these layers and deploy the result to all enabled tools. There is no backup step: a deploy is a deterministic re-run from this repo, so recovering an earlier state means checking out the config you want in Git and syncing again.
 
 ## Where to Put Things
 
@@ -35,6 +35,23 @@ Ask yourself: **"Does this apply to all my profiles, or just one?"**
 | Only work | `profiles/work/CLAUDE.md.append` or `profiles/work/rules/<topic>.md` |
 | Only personal | `profiles/personal/CLAUDE.md.append` or `profiles/personal/rules/<topic>.md` |
 | Both tools equally | `claude/skills/<name>/SKILL.md` (synced to both) |
+| One Claude account, regardless of profile | `homes/<label>/settings.json` |
+
+### Settings Layers: Profile vs Account
+
+Settings have one more layer than rules do, because two different things are being described.
+
+A **profile** is behavior — rules, skills, MCP servers, output style. An **account** (a Claude home) carries engine settings that belong to the seat itself: which `model` it runs and what `effortLevel`. Those follow the account's plan, not the rules you happen to have mounted.
+
+```
+base/settings.json                  shared defaults
+  -> profiles/<name>/settings.json  behavior for this profile
+    -> homes/<label>/settings.json  engine settings for this account   (wins)
+```
+
+The home layer merges last, keyed by home label rather than profile name, so switching a profile never changes that account's model. Keep these files to a couple of keys — if a setting should change when you switch profiles, it belongs in the profile instead.
+
+On a single-home machine you can ignore this layer; the files are optional and an absent one is a no-op. Full detail in the [multi-account guide](multi-account.md#profiles-are-behavior-accounts-are-engine-settings).
 
 ### CLAUDE.md vs Rules Files
 
