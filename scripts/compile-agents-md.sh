@@ -123,9 +123,13 @@ stage_rules "$SCRIPT_DIR/profiles/$PROFILE/rules" "$EFFECTIVE_RULES_DIR"
     # 5. Custom skill index. Skill bodies are installed into ~/.codex/skills by
     #    deploy-skills.sh, matching Claude Code's on-demand skill loading model.
     #    AGENTS.md only carries lightweight trigger metadata.
+    #    Index only the profile's allowlist (profile-skills.sh), so a skill
+    #    outside the profile is neither installed nor advertised.
     if [[ -d "$SCRIPT_DIR/claude/skills" ]]; then
         found_skill=false
-        for skill in "$SCRIPT_DIR/claude/skills/"*/SKILL.md; do
+        while IFS= read -r skill_name; do
+            [[ -n "$skill_name" ]] || continue
+            skill="$SCRIPT_DIR/claude/skills/$skill_name/SKILL.md"
             [[ -f "$skill" ]] || continue
             if [[ "$found_skill" == false ]]; then
                 echo "# Custom Skills"
@@ -144,7 +148,7 @@ stage_rules "$SCRIPT_DIR/profiles/$PROFILE/rules" "$EFFECTIVE_RULES_DIR"
                 description="See $(skill_title "$skill") for usage guidance."
             fi
             echo "- \`$name\`: $description"
-        done
+        done < <("$SCRIPT_DIR/scripts/profile-skills.sh" "$PROFILE")
         if [[ "$found_skill" == true ]]; then
             echo ""
             echo "---"

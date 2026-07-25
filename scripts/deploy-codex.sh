@@ -15,7 +15,7 @@ mkdir -p "$CODEX_DIR"
 echo "Deploying Codex configuration (profile: $PROFILE)..."
 
 # 1. Deploy custom skills so AGENTS.md can reference installed skill metadata
-"$SCRIPT_DIR/scripts/deploy-skills.sh" codex
+"$SCRIPT_DIR/scripts/deploy-skills.sh" codex "$PROFILE"
 
 # 2. Compile AGENTS.md from components
 "$SCRIPT_DIR/scripts/compile-agents-md.sh" "$PROFILE" "$CODEX_DIR/AGENTS.md"

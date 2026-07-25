@@ -275,14 +275,14 @@ base/CLAUDE.md + profile CLAUDE.md.append                 → ~/.claude/CLAUDE.m
 base/rules/ + claude/rules/ + profile rules/              → ~/.claude/rules/
 base/mcp-servers-base.json + profile mcp-servers.json     → ~/.claude.json (mcpServers)
 base/settings.json + profile settings + homes/<label>/    → ~/.claude/settings.json
-claude/skills/*/                                          → ~/.claude/skills/
+claude/skills/*/ (filtered by skills.txt)                 → ~/.claude/skills/
 ```
 
 **Codex CLI:**
 ```
 codex/instructions.md + CLAUDE.md + rules + skills        → ~/.codex/AGENTS.md
 codex/config-base.toml + MCP servers (JSON→TOML)          → ~/.codex/config.toml
-claude/skills/*/                                          → ~/.codex/skills/
+claude/skills/*/ (filtered by skills.txt)                 → ~/.codex/skills/
 ```
 
 When you run `./sync.sh`, the scripts:
@@ -300,7 +300,7 @@ When you run `./sync.sh`, the scripts:
 | Only one profile | `profiles/<name>/CLAUDE.md.append` or `profiles/<name>/rules/<topic>.md` |
 | One Claude account, whatever profile it runs | `homes/<label>/settings.json` (`model`, `effortLevel`) |
 | Codex-specific behavior | `codex/instructions.md` or `codex/config-base.toml` |
-| Skills (both tools) | `claude/skills/<name>/SKILL.md` |
+| Skills (both tools) | `claude/skills/<name>/SKILL.md`, then allowlist it in `profiles/<name>/skills.txt` |
 
 **CLAUDE.md** is for core behavioral instructions (how the agent should think and communicate).
 **Rules files** are for domain-specific standards (TypeScript style, testing philosophy, API conventions).
@@ -407,9 +407,13 @@ claude/skills/
     SKILL.md            # Your custom skill
 ```
 
-After `./sync.sh`, skills are deployed to both tools:
-- Claude Code: `~/.claude/skills/<name>/SKILL.md`
-- Codex CLI: `~/.codex/skills/<name>/SKILL.md`
+Writing the file does not deploy it. A skill reaches a profile only when that profile's `skills.txt` names it, and `@include <profile>` inherits another profile's list. Run `./scripts/profile-skills.sh <profile>` to see the resolved list.
+
+After `./sync.sh`, the profile's allowlisted skills are deployed to both tools:
+- Claude Code: `~/.claude/skills/<name>/` (a symlink into the shared store)
+- Codex CLI: `~/.codex/skills/<name>/SKILL.md` (a copy)
+
+A skill outside the active profile's allowlist is neither installed nor listed in Codex's `AGENTS.md` skill index.
 
 To create a new skill, see `claude/skills/SKILL-TEMPLATE.md` for the format and conventions. The `swarm-review` skill is included as a working example.
 

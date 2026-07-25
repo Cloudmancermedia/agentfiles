@@ -13,3 +13,6 @@ local/
 *.swp
 *.swo
 *~
+
+# Claude Code's per-repo working area (worktrees, local settings)
+.claude/
