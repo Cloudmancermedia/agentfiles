@@ -1,18 +1,30 @@
-# Local machine-specific files (not synced)
+# Nothing is ignored here without a reason stated next to it. If you cannot say
+# why a path must stay out of the repo, it should be committed — an over-broad
+# ignore silently hides files a shared repo is supposed to share, and git never
+# descends into an excluded directory, so a later exception cannot undo it.
+
+# Per-machine state this repo writes itself: which profile is bound to which
+# Claude home on THIS machine (local/.homes), and the legacy .current-profile.
+# The repo defines profiles; each machine declares which homes exist.
 local/
-.mcp.json
 
-# macOS
+# Created by the OS and by editors without being asked, never intentional content.
 .DS_Store
-
-# Backup files
-*.backup
-*.bak
-
-# Editor files
 *.swp
 *.swo
 *~
 
-# Claude Code's per-repo working area (worktrees, local settings)
-.claude/
+# Claude Code's project directory. Only the per-machine parts are ignored — the
+# rest of `.claude/` is meant to be shared. Per the Claude Code docs,
+# `.claude/settings.json` is "checked into source control and shared with your
+# team", while `.claude/settings.local.json` is not; project skills, subagents,
+# and slash commands under `.claude/` track with the repo the same way.
+# https://code.claude.com/docs/en/settings
+#
+# settings.local.json is where Claude Code records permanent permission grants,
+# so it is the one file here that accumulates machine-specific commands. Claude
+# Code gitignores it automatically when it creates the file; this covers creating
+# it by hand. worktrees/ holds git worktrees of this repo — committing those into
+# the repo they check out is incoherent.
+.claude/settings.local.json
+.claude/worktrees/
