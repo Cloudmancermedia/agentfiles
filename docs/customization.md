@@ -80,7 +80,38 @@ For Codex, the merged JSON is automatically converted to TOML `[mcp_servers.*]` 
 
 ### Skills
 
-Skills live in `claude/skills/<name>/SKILL.md` and are synced to both Claude Code (`~/.claude/skills/`) and Codex CLI (`~/.codex/skills/`). See `claude/skills/SKILL-TEMPLATE.md` for the format.
+Skills live in `claude/skills/<name>/SKILL.md`. See `claude/skills/SKILL-TEMPLATE.md` for the format.
+
+Writing the file does not deploy it. A skill reaches a profile only when that profile's `skills.txt` names it:
+
+```
+# profiles/personal/skills.txt — one skill per line, comments and blanks ignored
+swarm-review
+```
+
+```
+# profiles/work/skills.txt — inherit another profile's list, then add to it
+@include personal
+some-work-only-skill
+```
+
+`@include <profile>` pulls in that profile's resolved list, so a skill added to `personal` flows into `work` automatically. `scripts/profile-skills.sh <profile>` prints the resolved list, which is the quickest way to check what a profile will actually receive.
+
+**The allowlist governs both tools.** Claude homes get per-skill symlinks into the shared store, and Codex gets copies in `~/.codex/skills/` — both from the same resolved list. A skill outside the profile is neither installed nor advertised in the Codex `AGENTS.md` index.
+
+### Scoping Anything to One Profile
+
+The general rule: if something should apply in one context and not another, it belongs under `profiles/<name>/` rather than in `base/`.
+
+| Concern | Shared | Profile-scoped |
+|---|---|---|
+| Instructions | `base/CLAUDE.md` | `profiles/<name>/CLAUDE.md.append` |
+| Rules | `base/rules/`, `claude/rules/` | `profiles/<name>/rules/` |
+| Skills | — | `profiles/<name>/skills.txt` (the allowlist) |
+| MCP servers | `base/mcp-servers-base.json` | `profiles/<name>/mcp-servers.json` |
+| Engine settings | `base/settings.json` | `homes/<label>/settings.json` (per account, not per profile) |
+
+A rule that only makes sense for work — an approval gate for infrastructure commands, a company review checklist — goes in `profiles/work/rules/`. Putting it in `base/rules/` loads it into every personal session too.
 
 ## Adding the Other Tool With an LLM
 
