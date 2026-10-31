@@ -12,6 +12,7 @@ Thanks for your interest in improving agentfiles!
 - Fork the repo and create a branch for your change
 - Keep changes focused — one feature or fix per PR
 - Test your changes on a fresh clone if possible (run `./install.sh` and verify the workflow)
+- Run the tests under `tests/`; if you change what Claude loads up front, update `tests/resident-budget.txt` in the same commit
 - Update the README if your change affects usage
 
 ### What Makes a Good Contribution

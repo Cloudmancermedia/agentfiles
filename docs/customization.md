@@ -9,16 +9,19 @@ Everything in this repo follows one rule: **base configuration is shared across 
 ### Claude Code
 ```
 base/CLAUDE.md + profiles/<profile>/CLAUDE.md.append           → ~/.claude/CLAUDE.md
-base/rules/*.md + claude/rules/*.md + profiles/<profile>/rules/*.md → ~/.claude/rules/
+base/writing-rules.md + base/rules/*.md + claude/rules/*.md + profiles/<profile>/rules/*.md → ~/.claude/rules/
 base/mcp-servers-base.json + profiles/<profile>/mcp-servers.json    → ~/.claude.json
 base/settings.json + profiles/<profile>/settings.json + homes/<label>/settings.json → ~/.claude/settings.json
 claude/skills/*/                                                    → ~/.claude/skills/
+base/hooks/* + profiles/<profile>/hooks/*                           → ~/.claude/hooks/
+base/output-styles/*.md                                             → ~/.claude/output-styles/
 ```
 
 ### Codex CLI
 ```
-codex/instructions.md + CLAUDE.md + rules + skill metadata → ~/.codex/AGENTS.md
+codex/instructions.md + CLAUDE.md + writing rules + rules + skill metadata → ~/.codex/AGENTS.md
 codex/config-base.toml + MCP servers (JSON→TOML)           → ~/.codex/config.toml
+codex/agents/*.toml                                         → ~/.codex/agents/
 claude/skills/*/                                            → ~/.codex/skills/
 ```
 
@@ -41,7 +44,7 @@ Ask yourself: **"Does this apply to all my profiles, or just one?"**
 
 Settings have one more layer than rules do, because two different things are being described.
 
-A **profile** is behavior — rules, skills, MCP servers, output style. An **account** (a Claude home) carries engine settings that belong to the seat itself: which `model` it runs and what `effortLevel`. Those follow the account's plan, not the rules you happen to have mounted.
+A **profile** is behavior — rules, skills, MCP servers, output style. An **account** (a Claude home) carries engine settings that belong to the seat itself: which `model` it runs and at what effort (`modelSettings`). Those follow the account's plan, not the rules you happen to have mounted.
 
 ```
 base/settings.json                  shared defaults
@@ -110,8 +113,29 @@ The general rule: if something should apply in one context and not another, it b
 | Skills | — | `profiles/<name>/skills.txt` (the allowlist) |
 | MCP servers | `base/mcp-servers-base.json` | `profiles/<name>/mcp-servers.json` |
 | Engine settings | `base/settings.json` | `homes/<label>/settings.json` (per account, not per profile) |
+| Hooks | `base/hooks/` + registration in `base/settings.json` | `profiles/<name>/hooks/` + registration in `profiles/<name>/settings.json` |
+| Output style | `base/output-styles/` (deployed to every profile) | `"outputStyle"` in `profiles/<name>/settings.json` (which one is on) |
 
 A rule that only makes sense for work — an approval gate for infrastructure commands, a company review checklist — goes in `profiles/work/rules/`. Putting it in `base/rules/` loads it into every personal session too.
+
+### Hooks
+
+A [hook](https://code.claude.com/docs/en/hooks) is a script Claude Code runs at a fixed point, such as before a tool call. A rule asks the model to behave; a hook enforces it, so use one when a rule keeps being missed. It takes two parts:
+
+1. **The script.** Put it in `base/hooks/` for every profile or `profiles/<name>/hooks/` for one. `scripts/deploy-hooks.sh` copies the top-level files of both into the home's `hooks/` and makes `.sh` files executable. Subdirectories are skipped, which is why `base/hooks/examples/` never deploys.
+2. **The registration.** Add a `hooks` block to `base/settings.json` or the profile's `settings.json`, pointing at `{{CLAUDE_DIR}}/hooks/<script>`. `base/hooks/examples/block-env-reads.sh` shows both halves in its header.
+
+Deploy verifies that every script a registration names exists and is executable, and fails the deploy when one is missing. It does not prune: a hook you delete from this repo stays in the deployed `hooks/` directory, unregistered and inert, until you delete it there by hand.
+
+Every hook that runs on each prompt adds its output to every turn, and `tests/resident-budget.test.sh` counts it. Prefer hooks that stay silent unless they block something.
+
+### Output styles and writing rules
+
+An [output style](https://code.claude.com/docs/en/output-styles) becomes part of Claude Code's system prompt. That makes it a stronger place for rules about how a reply is shaped (length, what comes first, how it ends) than a rule file, which arrives as context. Styles live in `base/output-styles/` and deploy to every profile; a profile turns one on with `"outputStyle": "<name>"` in its `settings.json`. None is on by default.
+
+A style can pull in another file with a marker on its own line, `<!-- include: base/style-pointer.md -->`. Deploy replaces the line with that file's contents, so text that also lives elsewhere keeps one source.
+
+Prose rules (word choice, voice, commit messages) live once in `base/writing-rules.md`. Deploy copies it into every home's `rules/`, the one place a main session and its subagents both read, and Codex gets it as the `Voice` section of `AGENTS.md`. The example style points at it instead of repeating it, because a second copy costs tokens on every session and drifts. Subagents never see the output style, so anything a subagent must follow belongs in a rule.
 
 ## Adding the Other Tool With an LLM
 
@@ -226,17 +250,22 @@ When the work profile is active, the wiki version is deployed. When personal is 
 
 `codex/config-base.toml` contains Codex CLI settings such as approval mode, model defaults, and optional plugin marketplace configuration. These are deployed as the base of `~/.codex/config.toml`, with MCP server sections appended.
 
+Its `[agents.*]` tables define subagent roles (explorer, worker, reviewer), so a session can hand work to a role with its own reasoning effort, and its own model once you set one, instead of inheriting the driver's. Each role's settings live in `codex/agents/<role>.toml`, deployed to `~/.codex/agents/`. The factory-zero profile gets none of this: `scripts/deploy-codex-minimal.sh` keeps only the engine settings and `[history]`.
+
 ### AGENTS.md Compilation
 
 Codex has no rules directory — all instructions are compiled into a single `~/.codex/AGENTS.md`. The compile script assembles it from:
 1. `codex/instructions.md` (Codex-specific preamble)
-2. `base/CLAUDE.md` + profile `CLAUDE.md.append`
+2. `base/CLAUDE.md`, then `base/writing-rules.md` as the `Voice` section, then the profile's `CLAUDE.md.append`
 3. All effective rules (base → claude → profile, with overrides)
 4. Skill metadata (lightweight index, not full skill bodies)
 5. Profile `AGENTS.md.append` (if present)
 
 ## Variable Substitution
 
-The merge script replaces `{{HOME}}` with your actual home directory. This is the only variable currently supported, but it's the main one that varies across machines.
+Two placeholders are replaced at deploy time in settings and MCP server files:
 
-If you need additional variables, edit `scripts/merge-settings.sh` — the substitution is a single `sed` command that's easy to extend.
+- `{{CLAUDE_DIR}}` becomes the Claude home being deployed (`~/.claude`, or `~/.claude-work` for a second account). Use it for hook commands, so each home runs its own copy.
+- `{{HOME}}` becomes your home directory.
+
+`{{CLAUDE_DIR}}` is replaced first everywhere. Codex has no home directory of its own to name, so its MCP servers get `{{HOME}}` only. To add a placeholder, extend the `sed` calls in `scripts/deploy-profile.sh`, `scripts/deploy-factory-zero.sh` and `scripts/merge-settings.sh`, which all use the same order.

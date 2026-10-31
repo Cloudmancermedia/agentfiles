@@ -1,0 +1,1 @@
+Write a commit message for the staged change. Don't commit, just give me the message.

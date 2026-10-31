@@ -8,6 +8,13 @@ if [[ ! -f "$SETTINGS_FILE" ]]; then
     exit 0
 fi
 
+# The home is the settings file's directory (~/.claude, ~/.claude-work, …). The
+# `claude` CLI targets it through CLAUDE_CONFIG_DIR, which the caller (sync.sh)
+# sets per home; installed_plugins.json lives under that same home, not always
+# the default ~/.claude.
+CLAUDE_DIR="$(cd "$(dirname "$SETTINGS_FILE")" && pwd)"
+INSTALLED_JSON="$CLAUDE_DIR/plugins/installed_plugins.json"
+
 if ! command -v claude >/dev/null 2>&1 || ! claude --version >/dev/null 2>&1; then
     echo "  -> Claude Code CLI not found; plugin install/update skipped"
     exit 0
@@ -42,12 +49,14 @@ while IFS= read -r marketplace; do
     fi
 done < <(jq -c '.extraKnownMarketplaces // {} | to_entries[]' "$SETTINGS_FILE")
 
-if ! claude plugin marketplace update >/dev/null; then
+# The CLI prints the failure reason on stdout, so keep it to show on failure.
+if ! update_output=$(claude plugin marketplace update 2>&1); then
     echo "  -> Warning: Claude Code marketplace update failed; continuing with cached marketplaces"
+    echo "$update_output" | sed 's/^/     /'
 fi
 
 while IFS= read -r plugin; do
-    if jq -e --arg plugin "$plugin" '.plugins[$plugin] // empty' "$HOME/.claude/plugins/installed_plugins.json" >/dev/null 2>&1; then
+    if jq -e --arg plugin "$plugin" '.plugins[$plugin] // empty' "$INSTALLED_JSON" >/dev/null 2>&1; then
         continue
     fi
 
@@ -55,6 +64,14 @@ while IFS= read -r plugin; do
         echo "  -> Installed $plugin"
     else
         echo "  -> Warning: failed to install Claude Code plugin $plugin"
+    fi
+done < <(jq -r '.enabledPlugins // {} | to_entries[] | select(.value == true) | .key' "$SETTINGS_FILE")
+
+# Update already-installed plugins to latest versions.
+while IFS= read -r plugin; do
+    output=$(claude plugin update "$plugin" 2>&1) || true
+    if echo "$output" | grep -q "updated from"; then
+        echo "  -> Updated $plugin"
     fi
 done < <(jq -r '.enabledPlugins // {} | to_entries[] | select(.value == true) | .key' "$SETTINGS_FILE")
 

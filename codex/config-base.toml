@@ -12,3 +12,24 @@ stream_response = true
 
 [project_doc]
 max_bytes = 65536
+
+# Subagent roles, so spawn_agent can hand work to a role with its own model and
+# reasoning effort instead of inheriting the driver's. Each role's settings live
+# in its config_file under codex/agents/ (deployed to ~/.codex/agents/). Role
+# behavior varies by Codex version; check `codex features list` and the Codex
+# config reference if a run depends on it.
+[agents]
+max_threads = 6
+max_depth = 1
+
+[agents.explorer]
+description = "Read-only discovery and analysis. Spawn several in parallel for distinct, independent questions about the codebase; return summaries, not raw output."
+config_file = "agents/explorer.toml"
+
+[agents.worker]
+description = "A bounded code change in an explicitly owned, non-overlapping write scope."
+config_file = "agents/worker.toml"
+
+[agents.reviewer]
+description = "Independent, adversarial review of a plan or diff."
+config_file = "agents/reviewer.toml"

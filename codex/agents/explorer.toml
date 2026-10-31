@@ -1,0 +1,7 @@
+# Codex subagent role "explorer": Read-only discovery and analysis. Cheapest, fastest tier.
+# Referenced by [agents.explorer].config_file in codex/config-base.toml and deployed
+# to ~/.codex/agents/. Uncomment model to run this role on a cheaper or
+# stronger model than the driver; the Codex config reference documents the
+# fallback when it is unset.
+# model = "<model for this role>"
+model_reasoning_effort = "low"

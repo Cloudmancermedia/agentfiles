@@ -86,9 +86,9 @@ if echo "$ENABLED_TOOLS" | grep -qw "claude"; then
         echo "--- Claude [$row_label]: $row_profile -> $(tilde "$row_dir") ---"
         CLAUDE_TARGET_DIR="$row_dir" CLAUDE_HOME_LABEL="$row_label" \
             "$SCRIPT_DIR/scripts/deploy-profile.sh" "$row_profile"
-        # Plugins: installation is machine-global, enable-state is per home, so
-        # sync each home against its own settings.json.
-        "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh" "$row_dir/settings.json"
+        # Plugins install per home (each keeps its own plugins/installed_plugins.json),
+        # and the claude CLI picks the home from CLAUDE_CONFIG_DIR.
+        CLAUDE_CONFIG_DIR="$row_dir" "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh" "$row_dir/settings.json"
     done
 
     if [[ "$VERIFY" -eq 1 ]]; then

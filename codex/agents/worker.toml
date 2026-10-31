@@ -1,0 +1,7 @@
+# Codex subagent role "worker": Bounded edits in an owned, non-overlapping write scope. Balanced tier.
+# Referenced by [agents.worker].config_file in codex/config-base.toml and deployed
+# to ~/.codex/agents/. Uncomment model to run this role on a cheaper or
+# stronger model than the driver; the Codex config reference documents the
+# fallback when it is unset.
+# model = "<model for this role>"
+model_reasoning_effort = "medium"

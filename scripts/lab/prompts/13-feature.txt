@@ -1,0 +1,1 @@
+Add a max function to src/sum.js that returns the largest number in an array and ignores non-numbers. Include tests.

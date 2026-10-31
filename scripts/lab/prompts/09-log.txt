@@ -1,0 +1,1 @@
+How many ERROR lines are in logs/app.log, and which error message is the most common? Give the counts.

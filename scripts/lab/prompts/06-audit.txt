@@ -1,0 +1,1 @@
+Audit every file under src/ for bugs. For each bug give the file and line, what goes wrong, and the fix. Do not edit anything.

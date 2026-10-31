@@ -15,6 +15,13 @@ fi
 rm -rf "$RULES_DEST"
 mkdir -p "$RULES_DEST"
 
+# The writing rules live once in base/writing-rules.md. rules/ is the one channel
+# a main session and every subagent both read, so they go here; the example
+# output style only points at them.
+if [[ -f "$SCRIPT_DIR/base/writing-rules.md" ]]; then
+    cp "$SCRIPT_DIR/base/writing-rules.md" "$RULES_DEST/writing-rules.md"
+fi
+
 # Deploy base rules (shared across all tools)
 if [[ -d "$SCRIPT_DIR/base/rules" ]]; then
     cp "$SCRIPT_DIR/base/rules/"*.md "$RULES_DEST/" 2>/dev/null || true

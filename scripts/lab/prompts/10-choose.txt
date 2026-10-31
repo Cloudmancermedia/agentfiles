@@ -1,0 +1,1 @@
+Should the settings in src/config.js move to a JSON file, or stay where they are? I want your recommendation.
