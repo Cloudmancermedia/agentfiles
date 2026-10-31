@@ -154,10 +154,21 @@ homes/
 
 ```json
 {
-  "model": "claude-opus-5",
-  "effortLevel": "medium"
+  "model": "claude-opus-5-5",
+  "modelSettings": {
+    "claude-opus-5-5": {
+      "effortLevel": "medium"
+    }
+  }
 }
 ```
+
+Effort is set per model, under `modelSettings` keyed by the model name. A
+top-level `effortLevel` does not apply to Opus 5.5
+([model config docs](https://code.claude.com/docs/en/model-config#adjust-effort-level)),
+and `tests/home-settings.test.sh` fails if a home sets one or runs a model with
+no effort entry. Declaring it here also keeps a level from being lost: `/effort`
+saves to `settings.json`, which the next sync rewrites.
 
 Keep these files small. Anything that is really about behavior belongs in a
 profile, where it can be reused across accounts. A good test: if you would want
@@ -171,7 +182,7 @@ the clean-baseline profile stays unsteered.
 Deploy prints what it applied, and verification asserts every key survived:
 
 ```
-  -> home settings overlay merged (work): model, effortLevel
+  -> home settings overlay merged (work): model, modelSettings
   [ok] home settings overlay (work) applied
 ```
 
@@ -187,15 +198,15 @@ Say the three layers disagree about `model`:
 
 | Layer | File | `model` | `outputStyle` |
 |---|---|---|---|
-| base | `base/settings.json` | `claude-haiku-4-5-20251001` | — |
-| profile | `profiles/work/settings.json` | `claude-sonnet-5` | `eli5` |
-| account | `homes/work/settings.json` | `claude-opus-5` | — |
+| base | `base/settings.json` | `claude-haiku-5-5` | — |
+| profile | `profiles/work/settings.json` | `claude-sonnet-5-5` | `eli5` |
+| account | `homes/work/settings.json` | `claude-opus-5-5` | — |
 
 Deployed to `~/.claude-work/settings.json`:
 
 ```json
 {
-  "model": "claude-opus-5",
+  "model": "claude-opus-5-5",
   "outputStyle": "eli5"
 }
 ```
@@ -241,7 +252,7 @@ leave the `homes/` files silent on `model`.
 
 | Thing | Scope | Why |
 |---|---|---|
-| `model`, `effortLevel` | **Per-account** (`homes/<label>/`) | Follows the seat's plan, not the mounted profile |
+| `model`, `modelSettings` (effort) | **Per-account** (`homes/<label>/`) | Follows the seat's plan, not the mounted profile |
 | `CLAUDE.md`, `rules/`, output styles | Per-profile, deployed per-home | The two profiles differ by design — different rules, different personas |
 | MCP servers, hooks | Per-profile, deployed per-home | Work servers must not appear in a personal session |
 | Skills | **Shared store, per-home symlinks** | Stored once on disk; each home links only what its profile allows |

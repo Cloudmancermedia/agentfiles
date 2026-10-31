@@ -25,9 +25,13 @@ set -euo pipefail
 #   - skills.txt         -> the skill allowlist (@include inherits another list)
 #   - mcp-servers.json   -> merged over base/mcp-servers-base.json
 #   - settings.json      -> deep-merged over the core-derived settings.json
+#   - hooks/             -> deployed after base/hooks/ (deploy-hooks.sh)
+#
+# Output styles in base/output-styles/ deploy to every profile; a profile turns
+# one on with "outputStyle" in its settings.json.
 #
 # Per-HOME settings (homes/<label>/settings.json) merge LAST, after the profile
-# overlay. They carry account-level engine settings — model, effortLevel — that
+# overlay. They carry account-level engine settings — model, per-model effort — that
 # belong to the account (its plan and limits), not to the behavior profile
 # mounted on it. So swapping which profile an account runs never changes that
 # account's model. The label comes from CLAUDE_HOME_LABEL (set by sync.sh and
@@ -53,6 +57,7 @@ SHARED_SKILLS="$HOME/.claude-shared/skills"
 TARGET_DIR="$CLAUDE_DIR/skills"
 CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
 BASE_MCP="$SCRIPT_DIR/base/mcp-servers-base.json"
+BASE_SETTINGS="$SCRIPT_DIR/base/settings.json"
 
 # Home label for the per-home settings overlay. Callers that know the binding
 # (sync.sh, switch-profile.sh) pass CLAUDE_HOME_LABEL; a direct run derives it
@@ -170,7 +175,7 @@ if [[ -f "$PROFILE_DIR/settings.json" ]]; then
     echo "  -> settings overlay merged: $(jq -r 'keys | join(", ")' "$PROFILE_DIR/settings.json")"
 fi
 
-# 3e. Home settings overlay — account-level engine settings (model, effortLevel)
+# 3e. Home settings overlay — account-level engine settings (model, modelSettings)
 #     merged LAST so they win over base and profile alike. Keyed by home label,
 #     not profile: mounting a different profile on an account never changes that
 #     account's model. An absent file is a no-op.
@@ -180,6 +185,34 @@ if [[ -f "$HOME_SETTINGS" ]]; then
     echo "$SETTINGS_MERGED" > "$CLAUDE_SETTINGS"
     echo "  -> home settings overlay merged ($HOME_LABEL): $(jq -r 'keys | join(", ")' "$HOME_SETTINGS")"
 fi
+
+# 3f. Plugins — step 1's teardown strips .enabledPlugins and
+#     .extraKnownMarketplaces so factory-zero stays plugin-free, which means a
+#     real profile must add base's set back. Without this, a plugin declared in
+#     base/settings.json never deploys anywhere. A profile or home overlay may
+#     add more; the union keeps both. deploy-claude-plugins.sh (run per home by
+#     sync.sh) then installs whatever ends up enabled.
+PLUGINS=$(jq '.enabledPlugins // {}' "$BASE_SETTINGS")
+MARKETS=$(jq '.extraKnownMarketplaces // {}' "$BASE_SETTINGS")
+UPDATED=$(jq --argjson plugins "$PLUGINS" --argjson markets "$MARKETS" '
+    ($plugins + (.enabledPlugins // {})) as $ep
+    | ($markets + (.extraKnownMarketplaces // {})) as $mk
+    | if ($ep | length) > 0 then .enabledPlugins = $ep else . end
+    | if ($mk | length) > 0 then .extraKnownMarketplaces = $mk else . end
+' "$CLAUDE_SETTINGS")
+echo "$UPDATED" > "$CLAUDE_SETTINGS"
+PLUGIN_NAMES=$(echo "$PLUGINS" | jq -r 'keys | join(", ")')
+if [[ -n "$PLUGIN_NAMES" ]]; then
+    echo "  -> plugins re-layered from base: $PLUGIN_NAMES"
+fi
+
+# 3g. Hook scripts — base/hooks then the profile's hooks/. Registration comes
+#     from the settings layers above; this lands the files it points at.
+env CLAUDE_TARGET_DIR="$CLAUDE_DIR" "$SCRIPT_DIR/scripts/deploy-hooks.sh" "$PROFILE"
+
+# 3h. Output styles — the teardown emptied output-styles/, so redeploy the
+#     shared styles. A profile selects one with "outputStyle" in its settings.
+env CLAUDE_TARGET_DIR="$CLAUDE_DIR" "$SCRIPT_DIR/scripts/deploy-output-styles.sh"
 
 # 4. Verify the final state matches the profile's manifests — no more, no less.
 echo ""
@@ -239,6 +272,45 @@ if [[ -f "$HOME_SETTINGS" ]]; then
         fi
     done
     echo "  [ok] home settings overlay ($HOME_LABEL) applied"
+fi
+
+# Plugins: every plugin base declares must survive into the deployed settings.
+for plugin in $(jq -r '.enabledPlugins // {} | keys[]' "$BASE_SETTINGS"); do
+    if [[ $(jq --arg p "$plugin" '.enabledPlugins // {} | has($p)' "$CLAUDE_SETTINGS") != "true" ]]; then
+        echo "  [x] base plugin '$plugin' missing from deployed settings"; FAILED=1
+    fi
+done
+
+# Output style: a selected style must have its file (outputStyle "<name>"
+# resolves to output-styles/<name>.md).
+SELECTED_STYLE=$(jq -r '.outputStyle // empty' "$CLAUDE_SETTINGS")
+if [[ -n "$SELECTED_STYLE" ]]; then
+    if [[ ! -f "$CLAUDE_DIR/output-styles/$SELECTED_STYLE.md" ]]; then
+        echo "  [x] outputStyle '$SELECTED_STYLE' selected but output-styles/$SELECTED_STYLE.md missing"; FAILED=1
+    else
+        echo "  [ok] output style '$SELECTED_STYLE' deployed and selected"
+    fi
+fi
+
+# Hooks: every script the deployed settings register must exist, and a .sh must
+# be executable. A command whose first word has no "/" is resolved from PATH,
+# not deployed by us, so it is skipped. Scoped to .hooks so a statusLine
+# command is not mistaken for a hook.
+REGISTERED_HOOKS=$(jq -r '(.hooks // {}) | [.. | objects | .command? // empty] | .[]' "$CLAUDE_SETTINGS")
+if [[ -n "$REGISTERED_HOOKS" ]]; then
+    while IFS= read -r cmd; do
+        [[ -n "$cmd" ]] || continue
+        first_tok="${cmd%% *}"
+        [[ "$first_tok" == */* ]] || continue
+        if [[ ! -f "$first_tok" ]]; then
+            echo "  [x] registered hook script missing: $first_tok"; FAILED=1
+        elif [[ "$first_tok" == *.sh && ! -x "$first_tok" ]]; then
+            echo "  [x] registered hook not executable: $first_tok"; FAILED=1
+        fi
+    done <<< "$REGISTERED_HOOKS"
+    echo "  [ok] registered hook scripts checked"
+else
+    echo "  [ok] no hooks registered"
 fi
 
 if [[ "$FAILED" -ne 0 ]]; then

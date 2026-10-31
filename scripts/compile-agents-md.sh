@@ -94,6 +94,17 @@ stage_rules "$SCRIPT_DIR/profiles/$PROFILE/rules" "$EFFECTIVE_RULES_DIR"
         echo ""
     fi
 
+    # 2b. Writing rules, from the same file Claude homes get in rules/. Codex has
+    #     no output styles, so this is its only copy.
+    if [[ -f "$SCRIPT_DIR/base/writing-rules.md" ]]; then
+        echo "# Voice"
+        echo ""
+        cat "$SCRIPT_DIR/base/writing-rules.md"
+        echo ""
+        echo "---"
+        echo ""
+    fi
+
     # 3. Profile-specific shared instructions (CLAUDE.md.append)
     if [[ -f "$SCRIPT_DIR/profiles/$PROFILE/CLAUDE.md.append" ]]; then
         SHARED_CONTENT=$(cat "$SCRIPT_DIR/profiles/$PROFILE/CLAUDE.md.append")

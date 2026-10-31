@@ -1,0 +1,10 @@
+# <profile> <bucket> <bytes>, read by tests/resident-budget.test.sh.
+# Lower a number in the same commit as a trim; raise one only on purpose.
+personal rules 21402
+personal style 0
+personal per-turn 0
+personal skills 328
+work rules 21475
+work style 0
+work per-turn 0
+work skills 328

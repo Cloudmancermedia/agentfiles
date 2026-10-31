@@ -12,10 +12,30 @@ fi
 CODEX_DIR=~/.codex
 mkdir -p "$CODEX_DIR"
 
+# factory-zero gets a stripped Codex: no AGENTS.md, skills, MCP servers, plugins,
+# hooks, or agent roles. Every other profile takes the full compile below.
+if [[ -f "$SCRIPT_DIR/profiles/$PROFILE/factory-zero.flag" ]]; then
+    exec "$SCRIPT_DIR/scripts/deploy-codex-minimal.sh" "$PROFILE"
+fi
+
 echo "Deploying Codex configuration (profile: $PROFILE)..."
 
 # 1. Deploy custom skills so AGENTS.md can reference installed skill metadata
 "$SCRIPT_DIR/scripts/deploy-skills.sh" codex "$PROFILE"
+
+# 1b. Subagent role layers. The [agents.*] tables in config.toml name them with
+# paths like "agents/explorer.toml", which resolve relative to config.toml, so
+# they live in ~/.codex/agents/. Only our files are refreshed; roles you add
+# there by hand are left alone.
+AGENTS_SRC="$SCRIPT_DIR/codex/agents"
+if [[ -d "$AGENTS_SRC" ]]; then
+    mkdir -p "$CODEX_DIR/agents"
+    for f in "$AGENTS_SRC"/*.toml; do
+        [[ -f "$f" ]] || continue
+        cp "$f" "$CODEX_DIR/agents/$(basename "$f")"
+    done
+    echo "  -> $CODEX_DIR/agents/ updated ($(find "$AGENTS_SRC" -maxdepth 1 -name '*.toml' | wc -l | tr -d ' ') role layers)"
+fi
 
 # 2. Compile AGENTS.md from components
 "$SCRIPT_DIR/scripts/compile-agents-md.sh" "$PROFILE" "$CODEX_DIR/AGENTS.md"

@@ -113,6 +113,7 @@ The scripts handle merging, deploying, and switching. You focus on writing the c
 
 - **Not a shell configurator.** This tool does not touch `.zshrc`, `.bashrc`, `.profile`, or any shell configuration. It exclusively manages files in `~/.claude/`, `~/.claude.json`, `~/.codex/`, and `~/.codex/config.toml`.
 - **Not prescriptive.** The example files show one way to use this. Delete them and write your own — the scripts don't care about content, only structure.
+- **Not every agent tool.** It deploys Claude Code and Codex CLI. Another tool fits the same pattern: one deploy script per tool that turns the shared sources into that tool's format. For [Kiro](https://kiro.dev/docs/steering/), each rule becomes a steering file in `~/.kiro/steering/` with YAML frontmatter that sets when it loads; for Grok CLI, rules copy into its own rules directory and its config is rebuilt from a base file plus the MCP servers, the way `deploy-codex.sh` builds `config.toml`. Add the script, call it from `sync.sh`, and keep it out of the Claude and Codex paths.
 
 ## Before You Clone: Public Fork or Private Copy?
 
@@ -257,7 +258,7 @@ Everything follows one rule: **base configuration is shared, profile configurati
 Settings add a third layer on top, because two things are being described and they change on different schedules:
 
 - A **profile** is behavior — rules, skills, MCP servers, CLAUDE.md, output style. You swap these freely.
-- An **account** (a Claude home) has engine settings that belong to the seat: which `model` it runs and what `effortLevel`. Those follow the account's plan, so switching profiles must not change them.
+- An **account** (a Claude home) has engine settings that belong to the seat: which `model` it runs and at what effort (`modelSettings`). Those follow the account's plan, so switching profiles must not change them.
 
 ```
 base/settings.json                  shared defaults
@@ -272,16 +273,20 @@ The scripts deploy to different locations depending on which tools are enabled:
 **Claude Code:**
 ```
 base/CLAUDE.md + profile CLAUDE.md.append                 → ~/.claude/CLAUDE.md
-base/rules/ + claude/rules/ + profile rules/              → ~/.claude/rules/
+base/writing-rules.md + base, claude and profile rules/   → ~/.claude/rules/
 base/mcp-servers-base.json + profile mcp-servers.json     → ~/.claude.json (mcpServers)
 base/settings.json + profile settings + homes/<label>/    → ~/.claude/settings.json
 claude/skills/*/ (filtered by skills.txt)                 → ~/.claude/skills/
+base/hooks/ + profile hooks/                              → ~/.claude/hooks/
+base/output-styles/ (include markers expanded)            → ~/.claude/output-styles/
 ```
 
 **Codex CLI:**
 ```
-codex/instructions.md + CLAUDE.md + rules + skills        → ~/.codex/AGENTS.md
+codex/instructions.md + CLAUDE.md + writing rules + rules → ~/.codex/AGENTS.md
+  + skill index
 codex/config-base.toml + MCP servers (JSON→TOML)          → ~/.codex/config.toml
+codex/agents/*.toml                                       → ~/.codex/agents/
 claude/skills/*/ (filtered by skills.txt)                 → ~/.codex/skills/
 ```
 
@@ -298,7 +303,7 @@ When you run `./sync.sh`, the scripts:
 | All profiles, all tools | `base/CLAUDE.md` or `base/rules/<topic>.md` |
 | Claude Code and Codex (not base) | `claude/rules/<topic>.md` |
 | Only one profile | `profiles/<name>/CLAUDE.md.append` or `profiles/<name>/rules/<topic>.md` |
-| One Claude account, whatever profile it runs | `homes/<label>/settings.json` (`model`, `effortLevel`) |
+| One Claude account, whatever profile it runs | `homes/<label>/settings.json` (`model`, `modelSettings`) |
 | Codex-specific behavior | `codex/instructions.md` or `codex/config-base.toml` |
 | Skills (both tools) | `claude/skills/<name>/SKILL.md`, then allowlist it in `profiles/<name>/skills.txt` |
 
@@ -430,6 +435,25 @@ Direct edits to `~/.claude/` or `~/.codex/` get overwritten on the next sync. Th
 
 If you include the `claude/rules/config-management.md` rule (or write your own version of it), Claude itself will learn to edit this repo instead of `~/.claude/` when you ask it to change your configuration.
 
+## Testing a change
+
+The tests under `tests/` are standalone scripts with no runner. Run them all:
+
+```bash
+for t in tests/*.test.sh; do echo "== $t"; bash "$t" || break; done
+```
+
+GitHub Actions runs the same tests on macOS and Linux for every push and pull
+request, plus `shellcheck` at error severity (`.github/workflows/test.yml`).
+
+Two of them keep always-loaded context in check. `tests/resident-budget.test.sh`
+measures what Claude loads before your first prompt (`CLAUDE.md`, rules, the
+output style, prompt hooks, skill descriptions) against `tests/resident-budget.txt`.
+It fails when a profile grows past its budget, and when a trim leaves it more than
+5% under, so the budget moves down in the same commit as the trim. To check that a
+smaller config still behaves the same, A/B it against main in the lab
+([docs/lab.md](docs/lab.md)).
+
 ## Repository Structure
 
 ```
@@ -440,6 +464,11 @@ agentfiles/
 │   │   ├── documentation.md           # Example: where docs live
 │   │   ├── tool-and-skill-usage.md    # Example: tool/skill selection
 │   │   └── ...                        # Add your own .md files here
+│   ├── hooks/                         # Hook scripts for every profile (top-level files deploy)
+│   │   └── examples/                  # Example hooks; not deployed until moved up
+│   ├── output-styles/                 # Output styles (concise.md is an example)
+│   ├── writing-rules.md               # Prose rules: one source for rules/ and AGENTS.md
+│   ├── style-pointer.md               # Included by the example style
 │   ├── mcp-servers-base.json          # MCP servers for all profiles
 │   └── settings.json                  # Claude Code settings
 │
@@ -455,6 +484,7 @@ agentfiles/
 │
 ├── codex/                              # Codex CLI specific config
 │   ├── instructions.md                # Codex-specific preamble for AGENTS.md
+│   ├── agents/                        # Subagent roles (explorer, worker, reviewer)
 │   └── config-base.toml               # Base Codex TOML config
 │
 ├── profiles/
@@ -476,8 +506,8 @@ agentfiles/
 │       └── factory-zero.flag
 │
 ├── homes/                              # Per-ACCOUNT settings, keyed by home label
-│   ├── personal/settings.json         # model + effortLevel for the personal seat
-│   └── work/settings.json             # model + effortLevel for the work seat
+│   ├── personal/settings.json         # model + per-model effort for the personal seat
+│   └── work/settings.json             # model + per-model effort for the work seat
 │                                      # Merged LAST, so a profile swap never
 │                                      # changes an account's model. Optional.
 │
@@ -492,19 +522,24 @@ agentfiles/
 │   ├── profile-skills.sh             # Resolves a profile's skill allowlist
 │   ├── compile-agents-md.sh          # Compiles AGENTS.md for Codex
 │   ├── deploy-claude-plugins.sh      # Deploys Claude Code plugins
+│   ├── deploy-hooks.sh               # Deploys base + profile hook scripts
+│   ├── deploy-output-styles.sh       # Deploys output styles, expanding includes
 │   ├── deploy-codex.sh               # Deploys Codex CLI configuration
+│   ├── deploy-codex-minimal.sh       # Codex for factory-zero: no instructions
 │   ├── deploy-rules.sh               # Deploys rules to a home's rules/
 │   ├── deploy-skills.sh              # Deploys skills to Codex
 │   ├── verify-plugins.sh             # Reports plugin enable-state drift
 │   ├── json-to-toml-mcp.sh           # Converts MCP JSON to TOML format
-│   └── merge-settings.sh             # Merges MCP servers + settings
+│   ├── merge-settings.sh             # Merges MCP servers + settings
+│   └── lab/                          # A/B lab: deploy a ref, run prompts, score (docs/lab.md)
 │
 ├── local/                             # Machine-specific state (gitignored)
 │   └── .homes                         # Which profile deploys into which home
 │
 ├── docs/
 │   ├── customization.md              # Detailed customization guide
-│   └── multi-account.md              # Adding a second account/home
+│   ├── multi-account.md              # Adding a second account/home
+│   └── lab.md                        # A/B testing a config change before merging
 │
 ├── install.sh                         # First-time setup (tool + profile selection)
 ├── switch-profile.sh                  # Rebind a home to a profile + redeploy

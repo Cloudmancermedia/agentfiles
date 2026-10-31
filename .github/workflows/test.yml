@@ -1,0 +1,46 @@
+# Runs the test suite and shellcheck on every push and pull request.
+#
+# Both runners, because the scripts must work on macOS's bash 3.2 and BSD tools
+# as well as Linux's bash 5 and GNU tools. Shellcheck gates on errors only: its
+# warnings on the existing scripts are mostly false positives (a "~" inside a
+# display string, jq's "{}" inside a quoted filter).
+name: test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq and shellcheck
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install jq shellcheck
+          else
+            sudo apt-get update -q && sudo apt-get install -y -q jq shellcheck
+          fi
+
+      - name: Shellcheck
+        run: |
+          shellcheck -S error *.sh bin/claude-home scripts/*.sh scripts/lab/*.sh \
+            scripts/lab/prompts/*.sh base/hooks/examples/*.sh tests/*.sh
+
+      - name: Tests
+        run: |
+          failed=0
+          for t in tests/*.test.sh; do
+            echo "== $t"
+            bash "$t" || failed=1
+          done
+          exit "$failed"

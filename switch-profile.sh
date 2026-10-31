@@ -67,7 +67,9 @@ fi
 
 # 1. Rebind the targeted row in .homes, leaving other rows untouched.
 tmp_homes=$(mktemp)
-awk -F'\t' -v label="$TARGET_LABEL" -v prof="$PROFILE" '
+# Columns are whitespace-separated (resolve-homes.sh accepts tabs or spaces), so
+# split on awk's default; the rewritten row is written back tab-separated.
+awk -v label="$TARGET_LABEL" -v prof="$PROFILE" '
     /^[[:space:]]*#/ || NF == 0 { print; next }
     { if ($1 == label) { printf "%s\t%s\t%s\n", $1, prof, $3 } else { print } }
 ' "$HOMES_FILE" > "$tmp_homes"
@@ -82,7 +84,7 @@ if echo "$ENABLED_TOOLS" | grep -qw "claude"; then
     "$SCRIPT_DIR/scripts/deploy-shared-skills.sh"
     CLAUDE_TARGET_DIR="$TARGET_DIR" CLAUDE_HOME_LABEL="$TARGET_LABEL" \
         "$SCRIPT_DIR/scripts/deploy-profile.sh" "$PROFILE"
-    "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh" "$TARGET_DIR/settings.json"
+    CLAUDE_CONFIG_DIR="$TARGET_DIR" "$SCRIPT_DIR/scripts/deploy-claude-plugins.sh" "$TARGET_DIR/settings.json"
 fi
 
 # 3. Codex is single-home and follows the DEFAULT home. Redeploy it only when the

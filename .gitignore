@@ -5,7 +5,9 @@
 
 # Per-machine state this repo writes itself: which profile is bound to which
 # Claude home on THIS machine (local/.homes), and the legacy .current-profile.
-# The repo defines profiles; each machine declares which homes exist.
+# The repo defines profiles; each machine declares which homes exist. Lab run
+# transcripts (local/lab-results/, see docs/lab.md) land here too: they are
+# per-machine output, and the final replies can quote your own config.
 local/
 
 # Created by the OS and by editors without being asked, never intentional content.
